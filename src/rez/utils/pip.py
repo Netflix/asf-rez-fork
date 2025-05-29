@@ -8,7 +8,21 @@ Python packaging related utilities.
 import os.path
 from email.parser import Parser
 
-import pkg_resources
+try:  # NFLX-GENAI
+    from pkg_resources import find_distributions as find_distributions
+except ModuleNotFoundError:
+    # Python 3.12
+    from importlib.metadata import distributions as find_distributions
+
+
+# NFLX-GENAI: pkg_resources.safe_name
+def safe_name(name):
+    """Convert an arbitrary string to a standard distribution name
+
+    Any runs of non-alphanumeric/. characters are replaced with a single '-'.
+    """
+    return re.sub('[^A-Za-z0-9.]+', '-', name)
+
 
 from rez.vendor.packaging.version import (
     parse as packaging_parse,
