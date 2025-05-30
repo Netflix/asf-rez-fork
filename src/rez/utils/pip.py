@@ -6,6 +6,7 @@
 Python packaging related utilities.
 """
 import os.path
+import re  # NFLX-GENAI
 from email.parser import Parser
 
 try:  # NFLX-GENAI
@@ -528,10 +529,10 @@ def convert_distlib_to_setuptools(installed_dist):
         `pkg_resources.DistInfoDistribution`: Equivalent setuptools dist object.
     """
     path = os.path.dirname(installed_dist.path)
-    setuptools_dists = pkg_resources.find_distributions(path)
+    setuptools_dists = find_distributions(path)  # NFLX-GENAI
 
     for setuptools_dist in setuptools_dists:
-        if setuptools_dist.key == pkg_resources.safe_name(installed_dist.key):
+        if setuptools_dist.key == safe_name(installed_dist.key):  # NFLX-GENAI
             return setuptools_dist
 
     return None
