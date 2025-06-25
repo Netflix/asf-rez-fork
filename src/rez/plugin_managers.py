@@ -159,7 +159,15 @@ class RezPluginType(object):
                     # already loaded, so check for that
                     plugin_module = sys.modules.get(modname)
                     if plugin_module is None:
-                        loader = importer.find_module(modname)
+                        try:
+                            loader = importer.find_module(modname)
+                        except AttributeError:
+                            # SKIT: N.B. pkgutil.find_module() is deprecated as of Python 3.11 and is removed in Python 3.12.
+                            spec = importer.find_spec(modname)
+                            if spec is not None and spec.loader is not None:
+                                loader = spec.loader
+                            else:
+                                raise Exception("Handle module not found or no loader")
                         plugin_module = loader.load_module(modname)
 
                     elif os.path.dirname(plugin_module.__file__) != path:
