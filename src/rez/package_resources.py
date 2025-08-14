@@ -34,9 +34,9 @@ package_release_keys = (
 package_build_only_keys = (
     "requires_rez_version",
     "build_system",
-    "build_command",
+    # "build_command",  # NFLX-GENAI
     "preprocess",
-    "pre_build_commands"
+    # "pre_build_commands"  # NFLX-GENAI
 )
 
 # package attributes that are rex-based functions

@@ -11,9 +11,11 @@ from email.parser import Parser
 
 try:  # NFLX-GENAI
     from pkg_resources import find_distributions as find_distributions
+    __IMPORTLIB_METADATA_FUTURE = False
 except ModuleNotFoundError:
     # Python 3.12
     from importlib.metadata import distributions as find_distributions
+    __IMPORTLIB_METADATA_FUTURE = True
 
 
 # NFLX-GENAI: pkg_resources.safe_name
@@ -202,6 +204,7 @@ def pip_specifier_to_rez_requirement(specifier):
     Returns:
         `VersionRange`: Equivalent rez version range.
     """
+
     def is_release(rez_ver):
         parts = rez_ver.split('.')
         try:
@@ -340,8 +343,19 @@ def is_pure_python_package(installed_dist):
     """
     setuptools_dist = convert_distlib_to_setuptools(installed_dist)
 
-    # see https://www.python.org/dev/peps/pep-0566/#json-compatible-metadata
-    wheel_data = setuptools_dist.get_metadata('WHEEL')
+    # NFLX-GENAI
+    if __IMPORTLIB_METADATA_FUTURE:
+        # Python 3.12+: use locate_file and open
+        wheel_path = setuptools_dist.locate_file('WHEEL')
+        try:
+            with open(wheel_path, 'r', encoding='utf-8') as f:
+                wheel_data = f.read()
+        except FileNotFoundError:
+            wheel_data = ""
+    else:
+        # see https://www.python.org/dev/peps/pep-0566/#json-compatible-metadata
+        wheel_data = setuptools_dist.get_metadata('WHEEL')
+
     wheel_data = Parser().parsestr(wheel_data)
 
     # see https://www.python.org/dev/peps/pep-0427/#what-s-the-deal-with-purelib-vs-platlib
@@ -361,7 +375,17 @@ def is_entry_points_scripts_package(installed_dist):
     """
     setuptools_dist = convert_distlib_to_setuptools(installed_dist)
 
-    entry_map = setuptools_dist.get_entry_map()
+    # NFLX-GENAI
+    if __IMPORTLIB_METADATA_FUTURE:
+        # 'entry_points' returns EntryPoints object, which can be filtered by group
+        entry_points = setuptools_dist.entry_points
+        # To get a dict mapping group -> [entry_points]
+        entry_map = {}
+        for ep in entry_points:
+            entry_map.setdefault(ep.group, []).append(ep)
+    else:
+        entry_map = setuptools_dist.get_entry_map()
+
     return bool(entry_map.get("console_scripts") or entry_map.get("gui_scripts"))
 
 
@@ -529,11 +553,18 @@ def convert_distlib_to_setuptools(installed_dist):
         `pkg_resources.DistInfoDistribution`: Equivalent setuptools dist object.
     """
     path = os.path.dirname(installed_dist.path)
-    setuptools_dists = find_distributions(path)  # NFLX-GENAI
-
-    for setuptools_dist in setuptools_dists:
-        if setuptools_dist.key == safe_name(installed_dist.key):  # NFLX-GENAI
-            return setuptools_dist
+    # NFLX-GENAI
+    if __IMPORTLIB_METADATA_FUTURE:
+        setuptools_dists = find_distributions(path=[path])
+        from importlib.metadata import Prepared
+        for setuptools_dist in setuptools_dists:
+            if setuptools_dist.name == Prepared.normalize(safe_name(installed_dist.key)):
+                return setuptools_dist
+    else:
+        setuptools_dists = find_distributions(path)  # NFLX-GENAI
+        for setuptools_dist in setuptools_dists:
+            if setuptools_dist.key == safe_name(installed_dist.key):  # NFLX-GENAI
+                return setuptools_dist
 
     return None
 
@@ -644,6 +675,7 @@ def normalize_requirement(requirement):
         Note that a list is returned, because the PEP426 format can define
         multiple requirements.
     """
+
     def reconstruct(req, marker_str=None, conditional_extras=None):
         new_req_str = req.name
 
